@@ -1,0 +1,12 @@
+# 核心依赖
+requests>=2.31.0
+python-dotenv>=1.0.0
+schedule>=1.2.0
+beautifulsoup4>=4.12.0
+
+# 可选依赖（用于增强功能）
+# APScheduler (更强大的调度器)
+# APScheduler>=3.10.0
+
+# 日志增强
+colorlog>=6.7.0
