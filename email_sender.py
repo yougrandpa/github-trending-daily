@@ -29,20 +29,29 @@ class EmailSender:
         self.recipients = [email.strip() for email in email_config.RECIPIENT_EMAILS if email.strip()]
         self.subject = email_config.EMAIL_SUBJECT
 
-    def _create_html_content(self, repos_analyzed: List[Dict], date: str = "") -> str:
+    def _create_html_content(self, repos_analyzed: List[Dict], date: str = "", period: str = "daily") -> str:
         """
         生成 HTML 格式的邮件内容
 
         Args:
             repos_analyzed: 分析后的仓库列表
             date: 报告日期
+            period: 周期类型 (daily, weekly, monthly)
 
         Returns:
             HTML 内容字符串
         """
         if not date:
             from datetime import datetime
-            date = datetime.now().strftime("%Y年%m月%d日")
+            if period == "weekly":
+                date = datetime.now().strftime("%Y年第%W周")
+            elif period == "monthly":
+                date = datetime.now().strftime("%Y年%m月")
+            else:
+                date = datetime.now().strftime("%Y年%m月%d日")
+        
+        # 周期显示文本
+        period_text = {"daily": "每日", "weekly": "每周", "monthly": "每月"}.get(period, "每日")
 
         # 构建仓库列表 HTML
         repos_html = ""
@@ -241,8 +250,8 @@ class EmailSender:
 <body>
     <div class="container">
         <div class="header">
-            <h1>📊 {self.subject}</h1>
-            <div class="date">{date} · GitHub 每日精选</div>
+            <h1>📊 {period_text}{self.subject.replace("每日", "").replace("每周", "").replace("每月", "")}</h1>
+            <div class="date">{date} · GitHub {period_text}精选</div>
         </div>
         <div class="stats-summary">
             <div>
@@ -263,7 +272,7 @@ class EmailSender:
         </div>
         <div class="footer">
             <p>🤖 此报告由 GitHub Trending Bot 自动生成</p>
-            <p>📧 每天上午 10:00 定时发送</p>
+            <p>📧 {period_text}定时发送</p>
         </div>
     </div>
 </body>
@@ -271,24 +280,34 @@ class EmailSender:
         """
         return html_template
 
-    def _create_text_content(self, repos_analyzed: List[Dict], date: str = "") -> str:
+    def _create_text_content(self, repos_analyzed: List[Dict], date: str = "", period: str = "daily") -> str:
         """
         生成纯文本格式的邮件内容
 
         Args:
             repos_analyzed: 分析后的仓库列表
             date: 报告日期
+            period: 周期类型 (daily, weekly, monthly)
 
         Returns:
             纯文本内容字符串
         """
         if not date:
             from datetime import datetime
-            date = datetime.now().strftime("%Y年%m月%d日")
+            if period == "weekly":
+                date = datetime.now().strftime("%Y年第%W周")
+            elif period == "monthly":
+                date = datetime.now().strftime("%Y年%m月")
+            else:
+                date = datetime.now().strftime("%Y年%m月%d日")
+        
+        # 周期显示文本
+        period_text = {"daily": "每日", "weekly": "每周", "monthly": "每月"}.get(period, "每日")
 
         lines = []
         lines.append("=" * 60)
-        lines.append(f"📊 {self.subject}")
+        subject = period_text + self.subject.replace("每日", "").replace("每周", "").replace("每月", "")
+        lines.append(f"📊 {subject}")
         lines.append(f"📅 {date}")
         lines.append("=" * 60)
         lines.append("")
@@ -373,13 +392,14 @@ class EmailSender:
 
         return '<br>'.join(html_parts)
 
-    def send_email(self, repos_analyzed: List[Dict], date: str = "") -> bool:
+    def send_email(self, repos_analyzed: List[Dict], date: str = "", period: str = "daily") -> bool:
         """
         发送邮件
 
         Args:
             repos_analyzed: 分析后的仓库列表
             date: 报告日期（可选）
+            period: 周期类型 (daily, weekly, monthly)
 
         Returns:
             是否发送成功
@@ -393,12 +413,14 @@ class EmailSender:
             return False
 
         # 生成邮件内容
-        html_content = self._create_html_content(repos_analyzed, date)
-        text_content = self._create_text_content(repos_analyzed, date)
+        html_content = self._create_html_content(repos_analyzed, date, period)
+        text_content = self._create_text_content(repos_analyzed, date, period)
 
         # 构建邮件
+        period_text = {"daily": "每日", "weekly": "每周", "monthly": "每月"}.get(period, "每日")
+        subject = period_text + self.subject.replace("每日", "").replace("每周", "").replace("每月", "")
         msg = MIMEMultipart('alternative')
-        msg['Subject'] = f"{self.subject} - {date}" if date else self.subject
+        msg['Subject'] = f"{subject} - {date}" if date else subject
         msg['From'] = f"{self.sender_name} <{self.sender_email}>"
         msg['To'] = ", ".join(self.recipients)
         msg['Date'] = formatdate()
@@ -446,7 +468,19 @@ class EmailSender:
 def send_daily_report(repos_analyzed: List[Dict], date: str = "") -> bool:
     """发送每日报告"""
     sender = EmailSender()
-    return sender.send_email(repos_analyzed, date)
+    return sender.send_email(repos_analyzed, date, period="daily")
+
+
+def send_weekly_report(repos_analyzed: List[Dict], date: str = "") -> bool:
+    """发送每周报告"""
+    sender = EmailSender()
+    return sender.send_email(repos_analyzed, date, period="weekly")
+
+
+def send_monthly_report(repos_analyzed: List[Dict], date: str = "") -> bool:
+    """发送每月报告"""
+    sender = EmailSender()
+    return sender.send_email(repos_analyzed, date, period="monthly")
 
 
 if __name__ == "__main__":

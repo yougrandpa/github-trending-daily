@@ -190,6 +190,12 @@ def get_weekly_trending(language: str = "") -> List[Dict]:
     return client.get_trending_repos(language=language, period="weekly")
 
 
+def get_monthly_trending(language: str = "") -> List[Dict]:
+    """获取本月 Trending"""
+    client = GitHubClient()
+    return client.get_trending_repos(language=language, period="monthly")
+
+
 if __name__ == "__main__":
     # 测试代码
     logging.basicConfig(level=logging.INFO)

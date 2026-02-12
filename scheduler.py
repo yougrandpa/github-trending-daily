@@ -14,10 +14,10 @@ logger = logging.getLogger(__name__)
 
 
 class Scheduler:
-    """定时任务调度器"""
+    """定时任务调度器 - 支持多周期任务"""
 
     def __init__(self):
-        self.task: Optional[Callable] = None
+        self.tasks: dict = {}  # 存储多个任务 {period: task}
         self.is_running = False
         self.last_run: Optional[datetime] = None
         self.last_result: Optional[bool] = None
@@ -26,50 +26,56 @@ class Scheduler:
         # 设置时区
         schedule.timezone = app_config.TIMEZONE
 
-    def set_task(self, task: Callable):
+    def set_task(self, task: Callable, period: str = "daily"):
         """
         设置要执行的任务
 
         Args:
             task: 无参数的函数
+            period: 周期类型 (daily, weekly, monthly)
         """
-        self.task = task
-        logger.info(f"任务已设置: {task.__name__}")
+        self.tasks[period] = task
+        logger.info(f"任务已设置 [{period}]: {task.__name__}")
 
-    def _run_job(self):
-        """执行任务"""
-        if not self.task:
-            logger.error("没有设置任务")
+    def _run_job(self, period: str = "daily"):
+        """执行任务
+        
+        Args:
+            period: 周期类型 (daily, weekly, monthly)
+        """
+        task = self.tasks.get(period)
+        if not task:
+            logger.error(f"没有设置 [{period}] 任务")
             return
 
         logger.info("=" * 50)
-        logger.info(f"开始执行定时任务: {datetime.now()}")
+        logger.info(f"开始执行 [{period}] 定时任务: {datetime.now()}")
         logger.info("=" * 50)
 
         self.is_running = True
         self.error_message = None
 
         try:
-            self.task()
+            task()
             self.last_result = True
-            logger.info("✅ 任务执行成功")
+            logger.info(f"✅ [{period}] 任务执行成功")
         except Exception as e:
             self.last_result = False
             self.error_message = str(e)
-            logger.error(f"❌ 任务执行失败: {e}")
+            logger.error(f"❌ [{period}] 任务执行失败: {e}")
         finally:
             self.is_running = False
             self.last_run = datetime.now()
 
     def start(self, hour: int = None, minute: int = None):
         """
-        启动定时任务
+        启动定时任务（支持多周期）
 
         Args:
             hour: 执行小时（默认从配置读取）
             minute: 执行分钟（默认从配置读取）
         """
-        if not self.task:
+        if not self.tasks:
             logger.error("请先设置任务（调用 set_task）")
             return
 
@@ -79,17 +85,39 @@ class Scheduler:
         # 清除所有已存在的任务
         schedule.clear()
 
-        # 设置每日执行时间
-        schedule.every().day.at(f"{hour:02d}:{minute:02d}").do(self._run_job)
+        # 为每个周期设置调度
+        for period, task in self.tasks.items():
+            if period == "daily":
+                # 每日执行
+                schedule.every().day.at(f"{hour:02d}:{minute:02d}").do(self._run_job, period="daily")
+                logger.info(f"📅 每日任务已设置: 每天 {hour:02d}:{minute:02d}")
+            elif period == "weekly":
+                # 每周一执行
+                schedule.every().monday.at(f"{hour:02d}:{minute:02d}").do(self._run_job, period="weekly")
+                logger.info(f"📅 每周任务已设置: 每周一 {hour:02d}:{minute:02d}")
+            elif period == "monthly":
+                # 每月1号执行
+                schedule.every().day.at(f"{hour:02d}:{minute:02d}").do(
+                    self._run_monthly_job, hour=hour, minute=minute
+                )
+                logger.info(f"📅 每月任务已设置: 每月1号 {hour:02d}:{minute:02d}")
 
-        logger.info(f"📅 定时任务已启动")
-        logger.info(f"   执行时间: 每天 {hour:02d}:{minute:02d} ({app_config.TIMEZONE})")
-        logger.info(f"   任务: {self.task.__name__}")
+        logger.info(f"   时区: {app_config.TIMEZONE}")
 
-    def run_now(self):
-        """立即执行一次任务"""
-        logger.info("🚀 收到手动执行命令")
-        self._run_job()
+    def _run_monthly_job(self, hour: int, minute: int):
+        """每月任务检查器（在每月1号执行）"""
+        today = datetime.now()
+        if today.day == 1:
+            self._run_job(period="monthly")
+
+    def run_now(self, period: str = "daily"):
+        """立即执行一次任务
+        
+        Args:
+            period: 周期类型 (daily, weekly, monthly)
+        """
+        logger.info(f"🚀 收到手动执行命令 [{period}]")
+        self._run_job(period=period)
 
     def stop(self):
         """停止定时任务"""
@@ -105,7 +133,8 @@ class Scheduler:
             "last_result": self.last_result,
             "error": self.error_message,
             "next_run": str(schedule.next_run()) if schedule.jobs else None,
-            "timezone": app_config.TIMEZONE
+            "timezone": app_config.TIMEZONE,
+            "configured_periods": list(self.tasks.keys())
         }
 
     def run_scheduler(self):
@@ -131,24 +160,29 @@ scheduler = Scheduler()
 
 def start_daily_schedule(task: Callable):
     """
-    便捷函数：启动每日定时任务
+    便捷函数：启动每日定时任务（向后兼容）
 
     Args:
         task: 要执行的任务函数
     """
-    scheduler.set_task(task)
+    scheduler.set_task(task, period="daily")
     scheduler.start()
 
 
 if __name__ == "__main__":
-    # 测试调度器
+    # 测试调度器（多周期）
     logging.basicConfig(level=logging.INFO)
 
-    def test_task():
-        print("🎉 任务执行！")
+    def test_daily():
+        print("🎉 每日任务执行！")
         print(f"时间: {datetime.now()}")
 
-    scheduler.set_task(test_task)
+    def test_weekly():
+        print("🎉 每周任务执行！")
+        print(f"时间: {datetime.now()}")
+
+    scheduler.set_task(test_daily, period="daily")
+    scheduler.set_task(test_weekly, period="weekly")
     scheduler.start(hour=10, minute=0)
 
     # 显示状态
@@ -160,8 +194,8 @@ if __name__ == "__main__":
     time.sleep(5)
 
     # 立即执行一次
-    print("\n立即执行一次...")
-    scheduler.run_now()
+    print("\n立即执行每日任务...")
+    scheduler.run_now(period="daily")
 
     scheduler.stop()
     print("测试完成")

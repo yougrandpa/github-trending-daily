@@ -19,8 +19,8 @@ class GitHubConfig:
     DEFAULT_LANGUAGE = os.getenv("GITHUB_LANGUAGE", "")
     # 采集数量
     MAX_REPOSITORIES = int(os.getenv("MAX_REPOSITORIES", "10"))
-    # 是否只获取当天的 trending
-    DAILY_TRENDING = True
+    # 周期类型配置：daily, weekly, monthly, all（多个用逗号分隔）
+    TRENDING_PERIODS = os.getenv("TRENDING_PERIODS", "daily").split(",")
 
 
 # ==================== AI 分析配置 ====================
@@ -78,7 +78,11 @@ class EmailConfig:
     # 发件人名称
     SENDER_NAME = os.getenv("EMAIL_SENDER_NAME", "GitHub Trending Bot")
     # 邮件主题
-    EMAIL_SUBJECT = os.getenv("EMAIL_SUBJECT", "每日 GitHub 流行仓库报告")
+    EMAIL_SUBJECT = os.getenv("EMAIL_SUBJECT", "GitHub 流行仓库报告")
+    # 各周期邮件主题前缀
+    DAILY_SUBJECT_PREFIX = os.getenv("DAILY_SUBJECT_PREFIX", "每日")
+    WEEKLY_SUBJECT_PREFIX = os.getenv("WEEKLY_SUBJECT_PREFIX", "每周")
+    MONTHLY_SUBJECT_PREFIX = os.getenv("MONTHLY_SUBJECT_PREFIX", "每月")
 
 
 # ==================== 应用配置 ====================

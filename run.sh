@@ -65,12 +65,17 @@ echo ""
 MODE="scheduler"
 HOUR=""
 MINUTE=""
+PERIOD=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
         --now)
             MODE="now"
             shift
+            ;;
+        --period)
+            PERIOD="$2"
+            shift 2
             ;;
         --hour)
             HOUR="$2"
@@ -84,15 +89,19 @@ while [[ $# -gt 0 ]]; do
             echo "用法: ./run.sh [选项]"
             echo ""
             echo "选项:"
-            echo "  --now       立即执行一次（用于测试）"
-            echo "  --hour      指定执行小时（0-23）"
-            echo "  --minute    指定执行分钟（0-59）"
-            echo "  --help,-h   显示帮助信息"
+            echo "  --now              立即执行一次（用于测试）"
+            echo "  --period <类型>    指定报告周期: daily, weekly, monthly, all"
+            echo "  --hour <小时>      指定执行小时（0-23）"
+            echo "  --minute <分钟>    指定执行分钟（0-59）"
+            echo "  --help,-h          显示帮助信息"
             echo ""
             echo "示例:"
-            echo "  ./run.sh                    # 启动定时调度（每天上午10点）"
-            echo "  ./run.sh --now              # 立即执行一次"
-            echo "  ./run.sh --hour 9 --minute 0 # 设置为每天上午9点执行"
+            echo "  ./run.sh                         # 启动定时调度（每天上午10点）"
+            echo "  ./run.sh --now                   # 立即执行每日报告"
+            echo "  ./run.sh --now --period weekly   # 立即执行每周报告"
+            echo "  ./run.sh --now --period monthly  # 立即执行每月报告"
+            echo "  ./run.sh --now --period all      # 立即执行所有周期报告"
+            echo "  ./run.sh --hour 9 --minute 0     # 设置为每天上午9点执行"
             exit 0
             ;;
         *)
@@ -107,6 +116,9 @@ CMD="python3 $SCRIPT_DIR/main.py"
 if [ "$MODE" = "now" ]; then
     CMD="$CMD --now"
 fi
+if [ -n "$PERIOD" ]; then
+    CMD="$CMD --period $PERIOD"
+fi
 if [ -n "$HOUR" ]; then
     CMD="$CMD --hour $HOUR"
 fi
@@ -115,6 +127,9 @@ if [ -n "$MINUTE" ]; then
 fi
 
 echo -e "${YELLOW}📧 启动模式: $MODE${NC}"
+if [ -n "$PERIOD" ]; then
+    echo -e "${YELLOW}📅 报告周期: $PERIOD${NC}"
+fi
 if [ -n "$HOUR" ]; then
     echo -e "${YELLOW}⏰ 执行时间: 每天 ${HOUR}:${MINUTE:-00}${NC}"
 fi
